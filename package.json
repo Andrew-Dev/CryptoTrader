@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "node-bittrex-api": "^0.8.1"
+  }
+}
