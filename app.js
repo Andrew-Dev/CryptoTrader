@@ -8,8 +8,10 @@ bittrex.options({
 
 let totalBuys = 0
 let totalSells = 0
+let buySellRatio = 0
 
 bittrex.websockets.client(() => {
+    console.log(new Date().toString())
     console.log("Socket connected")
 
     bittrex.websockets.subscribe(['BTC-XRP'], (data) => {
@@ -17,7 +19,8 @@ bittrex.websockets.client(() => {
             //console.log(data.A[0].Buys.length + " new buys",data.A[0].Sells.length + " new sells")
             totalBuys += data.A[0].Buys.length
             totalSells += data.A[0].Sells.length
-            console.log(totalBuys + " Total buys " + totalSells + " Total sells ")
+            buySellRatio = totalBuys / totalSells
+            console.log(totalBuys + " Total buys " + totalSells + " Total sells " + buySellRatio + " Buy sell ratio ")
         }
     })
 })
