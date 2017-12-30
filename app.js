@@ -6,7 +6,9 @@ bittrex.options({
     'apisecret' : secrets.secret,
 })
 
-const interval = 5000
+const interval = 10000
+const fromCurrency = "BTC"
+const toCurrency = "XRP"
 
 let totalBuys = 0
 let totalSells = 0
@@ -21,12 +23,14 @@ let BTC = 1
 let XRP = 0
 
 let intervalCount = 0
+let boughtOnInterval = false
+let soldOnInterval = false
 
 console.log("Awaiting connection to Bittrex...")
 bittrex.websockets.client(() => {
     console.log("Socket connected at " + new Date().toString())
 
-    bittrex.websockets.subscribe(['BTC-XRP'], (data) => {
+    bittrex.websockets.subscribe([fromCurrency + '-' + toCurrency], (data) => {
         if(data.M === 'updateExchangeState') {
             //console.log(data.A[0].Buys)
             const buys = data.A[0].Buys
@@ -38,6 +42,7 @@ bittrex.websockets.client(() => {
             sellBuyRatio = totalSells / totalBuys
             averageBuyRate = addRateToAverage(averageBuyRate,totalBuys,buys)
             averageSellRate = addRateToAverage(averageSellRate,totalSells,sells)
+            buyDecision()
         }
     })
 
@@ -48,22 +53,39 @@ bittrex.websockets.client(() => {
         setInterval(() => {
             intervalCount++
             const priceChange = averageBuyRate - lastIntervalBuyRate
-            intervalBuyChange = priceChange / lastIntervalBuyRate
+            intervalBuyChange = 100 * (priceChange / lastIntervalBuyRate)
             lastIntervalBuyRate = averageBuyRate
             console.log("\n\nInterval " + intervalCount + " at " + new Date().toString())
             console.log(totalBuys + " Total buys " + totalSells + " Total sells " + buySellRatio + " Buy sell ratio ")
             console.log(averageBuyRate + " Avg. Buy (BTC) " + averageSellRate + " Avg. Sell (BTC)")
             console.log("Change from last interval: " + priceChange + " BTC | " + intervalBuyChange + "%")
+            console.log("Wallet Balances - BTC: " + BTC + " XRP: " + XRP)
+            const totalOriginalValue = BTC + lastIntervalBuyRate * XRP
+            console.log("Total " + fromCurrency + " value: " + totalOriginalValue)
             resetValues()
         },interval)
     },interval)
 })
+
+const buyDecision = () => {
+    if(interval > 0 && boughtOnInterval === false && BTC > 0.1 && intervalBuyChange < 0 && buySellRatio > 2.5) {
+        BTC -= 0.01
+        const otherAmount = 0.9975 * (0.01 / lastIntervalBuyRate)
+        XRP += otherAmount
+        boughtOnInterval = true
+
+        console.log("\nPURCHASE MADE")
+        console.log("Bought " + otherAmount + " " + toCurrency + " at " + averageBuyRate + " " + fromCurrency + "/" + toCurrency)
+        console.log("Wallet Balances - BTC: " + BTC + " XRP: " + XRP)
+    }
+}
 
 const resetValues = () => {
     averageBuyRate = 0
     averageSellRate = 0
     totalBuys = 0
     totalSells = 0
+    boughtOnInterval = false
 }
 
 const addRateToAverage = (oldAverage,oldSize,arr) => {
@@ -74,3 +96,8 @@ const addRateToAverage = (oldAverage,oldSize,arr) => {
     })
     return average
 }
+
+process.on('SIGINT',() => {
+    console.log("\nBTC: " + BTC + " XRP: " + XRP)
+    process.exit()
+})
