@@ -6,20 +6,25 @@ bittrex.options({
     'apisecret' : secrets.secret,
 })
 
+const interval = 5000
+
 let totalBuys = 0
 let totalSells = 0
 let buySellRatio = 0
 let sellBuyRatio = 0
 let averageBuyRate = 0
 let averageSellRate = 0
+let lastIntervalBuyRate = 0
+let intervalBuyChange = 0
 
 let BTC = 1
 let XRP = 0
 
+let intervalCount = 0
+
 console.log("Awaiting connection to Bittrex...")
 bittrex.websockets.client(() => {
-    console.log(new Date().toString())
-    console.log("Socket connected")
+    console.log("Socket connected at " + new Date().toString())
 
     bittrex.websockets.subscribe(['BTC-XRP'], (data) => {
         if(data.M === 'updateExchangeState') {
@@ -33,11 +38,33 @@ bittrex.websockets.client(() => {
             sellBuyRatio = totalSells / totalBuys
             averageBuyRate = addRateToAverage(averageBuyRate,totalBuys,buys)
             averageSellRate = addRateToAverage(averageSellRate,totalSells,sells)
-            console.log(totalBuys + " Total buys " + totalSells + " Total sells " + buySellRatio + " Buy sell ratio ")
-            console.log(averageBuyRate + " Avg. Buy (BTC) " + averageSellRate + " Avg. Sell (BTC)")
         }
     })
+
+    setTimeout(() => {
+        lastIntervalBuyRate = averageBuyRate
+        resetValues()
+        console.log("\nGot first average " + lastIntervalBuyRate)
+        setInterval(() => {
+            intervalCount++
+            const priceChange = averageBuyRate - lastIntervalBuyRate
+            intervalBuyChange = priceChange / lastIntervalBuyRate
+            lastIntervalBuyRate = averageBuyRate
+            console.log("\n\nInterval " + intervalCount + " at " + new Date().toString())
+            console.log(totalBuys + " Total buys " + totalSells + " Total sells " + buySellRatio + " Buy sell ratio ")
+            console.log(averageBuyRate + " Avg. Buy (BTC) " + averageSellRate + " Avg. Sell (BTC)")
+            console.log("Change from last interval: " + priceChange + " BTC | " + intervalBuyChange + "%")
+            resetValues()
+        },interval)
+    },interval)
 })
+
+const resetValues = () => {
+    averageBuyRate = 0
+    averageSellRate = 0
+    totalBuys = 0
+    totalSells = 0
+}
 
 const addRateToAverage = (oldAverage,oldSize,arr) => {
     let average = oldAverage
